@@ -14,46 +14,77 @@ public class ProjetoIntegrador {
     private static final SimpleDateFormat FORMATO_DATA = new SimpleDateFormat("dd/MM/yyyy");
     private static List<Usuario> usuarios = new ArrayList<>();
     private static Usuario usuarioLogado = null;
+    private static List<Empresa> empresas = new ArrayList<>();
+    private static List<Departamento> departamentos = new ArrayList<>();
+    private static String usuarioResponsavelAcao;
+
+    private static void inicializarPrograma() {
+        Usuario adminGeral = new Usuario("Administrador Geral", "adm", "admsenha", TipoUsuario.ADMINISTRADOR);
+        usuarios.add(adminGeral);
+    }
 
     private static void encerrarPrograma() {
         System.out.println("Saindo do programa.");
         System.exit(0);
     }
 
+    private static Empresa minhaEmpresa = null;
+
     public static void main(String[] args) {
         Scanner input = new Scanner(System.in);
         KanbanBoard kanbanBoard = new KanbanBoard();
 
+        inicializarPrograma();
+
         int opcao;
         do {
-            exibirMenuPrincipal();
+            exibirMenuPrincipal(input);
 
             try {
                 opcao = input.nextInt();
-                input.nextLine(); // Limpar o buffer
+                input.nextLine();
 
                 switch (opcao) {
                     case 1:
                         if (usuarioLogado == null) {
-                            cadastrarNovoUsuario(input);
-
-                        } else if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
-                            Empresa minhaEmpresa = criarEmpresa();
-                            String nomeDaEmpresa = minhaEmpresa.getNomeEmpresa();
-                            System.out.println("Nome da Empresa: " + nomeDaEmpresa);
+                            System.out.println("Faça login primeiro.");
                         } else if (usuarioLogado != null && (usuarioLogado.getTipoUsuario() == TipoUsuario.LIDER || usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR)) {
-                            cadastrarNovoProjeto(input, kanbanBoard);
+                            cadastrarNovoProjeto(input, empresas, kanbanBoard);
+                        } else if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.COLABORADOR) {
+                            alterarPorcentagemEStatusAcaoExistente(input, kanbanBoard, usuarioLogado);
                         } else {
-                            System.out.println("Você não tem permissão para cadastrar projetos.");
+                            System.out.println("Você não tem permissão para cadastrar projetos ou alterar as porcentagem das ações.");
                         }
                         break;
+
                     case 2:
                         if (usuarioLogado == null) {
-                            usuarioLogado = fazerLogin(input);
+                            System.out.println("[1] - Prosseguir com login");
+                            System.out.println("[0] - Sair");
+
+                            int opcaoLogin = input.nextInt();
+                            input.nextLine();
+
+                            switch (opcaoLogin) {
+                                case 1:
+                                    usuarioLogado = fazerLogin(input);
+                                    break;
+                                case 0:
+                                    encerrarPrograma();
+                                    break;
+                                default:
+                                    System.out.println("Opção inválida. Tente novamente.");
+                                    break;
+                            }
+
+                            if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
+                                System.out.println("Administrador Geral logado com sucesso!");
+                            }
                         } else {
                             adicionarTarefasAcoesProjetoExistente(input, kanbanBoard);
                         }
                         break;
+
                     case 3:
                         if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.LIDER || usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
                             visualizarDetalhesProjeto(input, kanbanBoard);
@@ -61,32 +92,120 @@ public class ProjetoIntegrador {
                             System.out.println("Você não tem permissão para visualizar projetos.");
                         }
                         break;
+
                     case 4:
                         if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.COLABORADOR) {
                             alterarPorcentagemEStatusAcaoExistente(input, kanbanBoard, usuarioLogado);
+                        } else {
+                            System.out.println("Você não tem permissão para alterar as porcentagem das ações.");
                         }
                         break;
+
+                    case 5:
+                        if (usuarioLogado == null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR || usuarioLogado.getTipoUsuario() == TipoUsuario.LIDER) {
+                            if (empresas.isEmpty()) {
+                                System.out.println("Nenhuma empresa cadastrada.");
+                            } else {
+                                System.out.println("Empresas cadastradas:");
+                                for (Empresa empresa : empresas) {
+                                    System.out.println(empresa.getNomeEmpresa());
+                                }
+                            }
+                        } else {
+                            if (usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR || usuarioLogado.getTipoUsuario() == TipoUsuario.LIDER) {
+                                if (empresas.isEmpty()) {
+                                    System.out.println("Nenhuma empresa cadastrada.");
+                                } else {
+                                    System.out.println("Empresas cadastradas:");
+                                    for (Empresa empresa : empresas) {
+                                        System.out.println(empresa.getNomeEmpresa());
+                                    }
+                                }
+                            } else {
+                                if (minhaEmpresa == null) {
+                                    minhaEmpresa = criarEmpresa(input);
+                                } else {
+                                    System.out.println("Empresa já cadastrada: " + minhaEmpresa.getNomeEmpresa());
+                                }
+                            }
+                        }
+                        break;
+
+                    case 6:
+                        if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
+                            criarNovaEmpresa(input);
+                        }
+                        break;
+
+                    case 7:
+                        if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
+                            if (departamentos.isEmpty()) {
+                                System.out.println("Nenhum departamento cadastrado.");
+                            } else {
+                                System.out.println("Departamentos cadastrados:");
+                                for (Departamento departamento : departamentos) {
+                                    System.out.println(departamento.getNomeDepartamento());
+                                }
+                            }
+                        } else {
+                            System.out.println("Você não tem permissão para listar os departamentos.");
+                        }
+                        listarDepartamentos(departamentos);
+                        break;
+
+                    case 8:
+                        if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
+                            novoDepartamento(input);
+                        }
+                        break;
+
+                    case 9:
+                        if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
+                            cadastrarNovoUsuario(input);
+                        }
+                        break;
+
                     case 0:
                         if (usuarioLogado == null) {
                             encerrarPrograma();
                         } else {
                             usuarioLogado = null;
                             System.out.println("Desconectado. Voltando para a tela de login.");
-                            exibirMenuPrincipal();
+                            exibirMenuPrincipal(input);
                             opcao = input.nextInt();
                             switch (opcao) {
                                 case 1:
                                     if (usuarioLogado == null) {
                                         cadastrarNovoUsuario(input);
-                                    } else if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.LIDER || usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
-                                        cadastrarNovoProjeto(input, kanbanBoard);
+                                    } else if (usuarioLogado != null && (usuarioLogado.getTipoUsuario() == TipoUsuario.LIDER || usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR)) {
+                                        cadastrarNovoProjeto(input, empresas, kanbanBoard);
                                     } else {
                                         System.out.println("Você não tem permissão para cadastrar projetos.");
                                     }
                                     break;
                                 case 2:
                                     if (usuarioLogado == null) {
-                                        usuarioLogado = fazerLogin(input);
+                                        System.out.println("[1] - Prosseguir com login");
+                                        System.out.println("[0] - Sair");
+
+                                        int opcaoLogin = input.nextInt();
+                                        input.nextLine();
+
+                                        switch (opcaoLogin) {
+                                            case 1:
+                                                usuarioLogado = fazerLogin(input);
+                                                break;
+                                            case 0:
+                                                encerrarPrograma();
+                                                break;
+                                            default:
+                                                System.out.println("Opção inválida. Tente novamente.");
+                                                break;
+                                        }
+
+                                        if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
+                                            System.out.println("Administrador Geral logado com sucesso!");
+                                        }
                                     } else {
                                         adicionarTarefasAcoesProjetoExistente(input, kanbanBoard);
                                     }
@@ -101,6 +220,8 @@ public class ProjetoIntegrador {
                                 case 4:
                                     if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.COLABORADOR) {
                                         alterarPorcentagemEStatusAcaoExistente(input, kanbanBoard, usuarioLogado);
+                                    } else {
+                                        System.out.println("Você não tem permissão para alterar as porcentagem das ações.");
                                     }
                                     break;
                                 case 0:
@@ -109,9 +230,8 @@ public class ProjetoIntegrador {
                                     } else {
                                         usuarioLogado = null;
                                         System.out.println("Desconectado. Voltando para a tela de login.");
-                                        exibirMenuPrincipal();
+                                        exibirMenuPrincipal(input);
                                         opcao = input.nextInt();
-
                                     }
                                     break;
                                 default:
@@ -119,20 +239,41 @@ public class ProjetoIntegrador {
                                         System.out.println("Faça login primeiro.");
                                         break;
                                     }
-
-                                    // Verificar permissões do usuário logado
                                     if (usuarioLogado.podeAcessarOpcoesAvancadas()) {
-                                        // Exibir opções avançadas
                                         switch (opcao) {
                                             case 1:
                                                 if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.LIDER || usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
-                                                    cadastrarNovoProjeto(input, kanbanBoard);
+                                                    cadastrarNovoProjeto(input, empresas, kanbanBoard);
                                                 } else {
                                                     System.out.println("Você não tem permissão para cadastrar projetos.");
                                                 }
                                                 break;
                                             case 2:
-                                                adicionarTarefasAcoesProjetoExistente(input, kanbanBoard);
+                                                if (usuarioLogado == null) {
+                                                    System.out.println("[1] - Prosseguir com login");
+                                                    System.out.println("[0] - Sair");
+
+                                                    int opcaoLogin = input.nextInt();
+                                                    input.nextLine();
+
+                                                    switch (opcaoLogin) {
+                                                        case 1:
+                                                            usuarioLogado = fazerLogin(input);
+                                                            break;
+                                                        case 0:
+                                                            encerrarPrograma();
+                                                            break;
+                                                        default:
+                                                            System.out.println("Opção inválida. Tente novamente.");
+                                                            break;
+                                                    }
+
+                                                    if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
+                                                        System.out.println("Administrador Geral logado com sucesso!");
+                                                    }
+                                                } else {
+                                                    adicionarTarefasAcoesProjetoExistente(input, kanbanBoard);
+                                                }
                                                 break;
                                             case 3:
                                                 if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.LIDER || usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
@@ -144,10 +285,11 @@ public class ProjetoIntegrador {
                                             case 4:
                                                 if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.COLABORADOR) {
                                                     alterarPorcentagemEStatusAcaoExistente(input, kanbanBoard, usuarioLogado);
+                                                } else {
+                                                    System.out.println("Você não tem permissão para alterar as porcentagem das ações.");
                                                 }
                                                 break;
                                             case 0:
-                                                // Voltar para a tela de login ao apertar 0 estando logado
                                                 usuarioLogado = null;
                                                 System.out.println("Desconectado. Voltando para a tela de login.");
                                                 break;
@@ -166,22 +308,40 @@ public class ProjetoIntegrador {
                             break;
                         }
 
-                        // Verificar permissões do usuário logado
                         if (usuarioLogado.podeAcessarOpcoesAvancadas()) {
-                            // Exibir opções avançadas
                             switch (opcao) {
                                 case 1:
                                     if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.LIDER || usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
-                                        cadastrarNovoProjeto(input, kanbanBoard);
+                                        cadastrarNovoProjeto(input, empresas, kanbanBoard);
                                     } else {
                                         System.out.println("Você não tem permissão para cadastrar projetos.");
                                     }
                                     break;
                                 case 2:
-                                    if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.LIDER || usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
-                                        adicionarTarefasAcoesProjetoExistente(input, kanbanBoard);
+                                    if (usuarioLogado == null) {
+                                        System.out.println("[1] - Prosseguir com login");
+                                        System.out.println("[0] - Sair");
+
+                                        int opcaoLogin = input.nextInt();
+                                        input.nextLine();
+
+                                        switch (opcaoLogin) {
+                                            case 1:
+                                                usuarioLogado = fazerLogin(input);
+                                                break;
+                                            case 0:
+                                                encerrarPrograma();
+                                                break;
+                                            default:
+                                                System.out.println("Opção inválida. Tente novamente.");
+                                                break;
+                                        }
+
+                                        if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
+                                            System.out.println("Administrador Geral logado com sucesso!");
+                                        }
                                     } else {
-                                        System.out.println("Você não tem permissão para adicionar tarefas e/ou ações.");
+                                        adicionarTarefasAcoesProjetoExistente(input, kanbanBoard);
                                     }
                                     break;
                                 case 3:
@@ -194,10 +354,11 @@ public class ProjetoIntegrador {
                                 case 4:
                                     if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.COLABORADOR) {
                                         alterarPorcentagemEStatusAcaoExistente(input, kanbanBoard, usuarioLogado);
+                                    } else {
+                                        System.out.println("Você não tem permissão para alterar as porcentagem das ações.");
                                     }
                                     break;
                                 case 0:
-                                    // Voltar para a tela de login ao apertar 0 estando logado
                                     usuarioLogado = null;
                                     System.out.println("Desconectado. Voltando para a tela de login.");
                                     break;
@@ -216,25 +377,40 @@ public class ProjetoIntegrador {
         } while (opcao != 0);
     }
 
-    private static void exibirMenuPrincipal() {
-        if (usuarioLogado != null && usuarioLogado.getTipoUsuario() == TipoUsuario.ADMINISTRADOR) {
-            System.out.println("=== Cadastrar Empresa ===");
-            Empresa minhaEmpresa = criarEmpresa();
-            String nomeDaEmpresa = minhaEmpresa.getNomeEmpresa();
-            System.out.println("Nome da Empresa: " + nomeDaEmpresa);
-        }
+    private static void exibirMenuPrincipal(Scanner input) {
         if (usuarioLogado == null) {
             System.out.println("Escolha uma opção:");
-            System.out.println("[1] - Cadastrar novo usuário");
             System.out.println("[2] - Fazer login");
             System.out.println("[0] - Sair");
         } else {
-            System.out.println("Escolha uma opção:");
-            System.out.println("[1] - Inserir novo projeto");
-            System.out.println("[2] - Adicionar mais tarefas e ações a um projeto existente");
-            System.out.println("[3] - Visualizar detalhes de um projeto existente");
-            System.out.println("[4] - Alterar porcentagem ou status de uma ação existente");
-            System.out.println("[0] - Sair");
+            switch (usuarioLogado.getTipoUsuario()) {
+                case ADMINISTRADOR:
+                    System.out.println("=============== MENU DO ADM ===================");
+                    System.out.println("[1] - Inserir novo projeto");
+                    System.out.println("[2] - Adicionar mais tarefas e ações a um projeto existente");
+                    System.out.println("[3] - Visualizar detalhes de um projeto existente");
+                    System.out.println("[4] - Alterar porcentagem ou status de uma ação existente");
+                    System.out.println("[5] - Visualizar empresas cadastradas");
+                    System.out.println("[6] - Cadastrar empresa");
+                    System.out.println("[7] - Visualizar departamentos cadastrados");
+                    System.out.println("[8] - Cadastrar departamento");
+                    System.out.println("[9] - Cadastrar novo usuário");
+                    System.out.println("[0] - Sair");
+                    break;
+                case LIDER:
+                    System.out.println("=============== MENU DO LIDER ===================");
+                    System.out.println("[1] - Inserir novo projeto");
+                    System.out.println("[2] - Adicionar mais tarefas e ações a um projeto existente");
+                    System.out.println("[3] - Visualizar detalhes de um projeto existente");
+                    System.out.println("[0] - Sair");
+                    break;
+                case COLABORADOR:
+                    System.out.println("=============== MENU DO COLABORADOR ===================");
+                    System.out.println("[1] - Alterar porcentagem ou status de uma ação existente");
+                    System.out.println("[0] - Sair");
+                    break;
+            }
+            System.out.println("===================================================");
         }
         System.out.print("Opção: ");
     }
@@ -261,7 +437,17 @@ public class ProjetoIntegrador {
                 Acao acaoExistente = tarefaExistente.encontrarAcao(nomeAcao);
 
                 if (acaoExistente != null && acaoExistente.podeSerEditadaPorUsuario(usuarioLogado) && usuarioLogado.temPermissao(Usuario.Permissao.EDITAR)) {
-                    alterarPorcentagemEStatus(acaoExistente, input);
+                    // Verificar se o usuário logado é o responsável pela ação
+                    if (acaoExistente.usuarioLogadoEhResponsavel(usuarioLogado)) {
+                        // Solicitar a nova descrição da ação
+                        System.out.println("Digite a nova descrição da ação:");
+                        String novaDescricao = input.nextLine();
+
+                        // Alterar porcentagem e status
+                        alterarPorcentagemEStatus(acaoExistente, input, novaDescricao);
+                    } else {
+                        System.out.println("Você não é o responsável por esta ação e não pode editá-la.");
+                    }
                 } else {
                     System.out.println("Ação não encontrada ou você não tem permissão para editá-la.");
                 }
@@ -273,7 +459,7 @@ public class ProjetoIntegrador {
         }
     }
 
-    private static void alterarPorcentagemEStatus(Acao acao, Scanner input) {
+    private static void alterarPorcentagemEStatus(Acao acao, Scanner input, String novaDescricao) {
         try {
             System.out.println("Deseja alterar a porcentagem ou o status da ação? ([1] - Porcentagem, [3] - Nenhum):");
             int opcao = input.nextInt();
@@ -282,7 +468,7 @@ public class ProjetoIntegrador {
             switch (opcao) {
                 case 1:
                     System.out.println("Digite a nova porcentagem da ação (de 0 a 100):");
-                    int novaPorcentagem = input.nextInt();
+                    double novaPorcentagem = input.nextDouble();
                     input.nextLine(); // Limpar o buffer
                     if (novaPorcentagem < 0 || novaPorcentagem > 100) {
                         throw new IllegalArgumentException("A porcentagem deve estar no intervalo de 0 a 100.");
@@ -298,11 +484,14 @@ public class ProjetoIntegrador {
                         acao.setStatus(Acao.StatusAcao.EM_ANDAMENTO);
                     } else {
                         acao.setStatus(Acao.StatusAcao.CONCLUIDA);
+
+                        // Definir a data de término ao atingir 100% de conclusão
+                        acao.setDescricao(novaDescricao);
+                        acao.definirDataTerminoAoConcluir();
                     }
                     break;
-
                 default:
-                    // Nenhuma alteração
+
                     break;
             }
         } catch (InputMismatchException e) {
@@ -313,48 +502,140 @@ public class ProjetoIntegrador {
         }
     }
 
-    private static void cadastrarNovoProjeto(Scanner input, KanbanBoard kanbanBoard) {
-        try {
-            System.out.println("Digite o nome do projeto:");
-            String nomeProjeto = input.nextLine();
-            if (nomeProjeto.trim().isEmpty()) {
-                throw new IllegalArgumentException("Nome do projeto não pode ser vazio");
+    private static void criarNovaEmpresa(Scanner input) {
+        if (usuarioLogado != null && usuarioLogado.podeCriarNovaEmpresa()) {
+            try {
+                System.out.println("Digite o nome da empresa:");
+                String nomeEmpresa = input.nextLine();
+
+                // Loop para garantir que o usuário forneça um ID válido
+                int idEmpresa;
+                while (true) {
+                    try {
+                        System.out.println("Digite o ID (senha) da empresa:");
+                        idEmpresa = Integer.parseInt(input.nextLine());
+                        break;  // Saia do loop se a conversão for bem-sucedida
+                    } catch (NumberFormatException e) {
+                        System.out.println("ID inválido. Por favor, digite um número válido.");
+                    }
+                }
+
+                Empresa novaEmpresa = new Empresa(idEmpresa, nomeEmpresa);
+                empresas.add(novaEmpresa);
+
+                System.out.println("Empresa cadastrada com sucesso: " + novaEmpresa.getNomeEmpresa());
+            } catch (NullPointerException e) {
+                System.out.println("Entrada inválida. Certifique-se de fornecer um nome válido para a empresa.");
             }
-            System.out.println("Digite uma pequena descrição do projeto:");
-            String descricaoProjeto = input.nextLine();
-
-            if (descricaoProjeto.trim().isEmpty()) {
-                throw new IllegalArgumentException("Descrição do projeto não pode ser vazia");
-            }
-
-            // Crie um usuário responsável pelo projeto (pode ser obtido de alguma forma)
-            Usuario responsavelProjeto = usuarioLogado;  // Ou de alguma outra forma dependendo da lógica do seu sistema
-
-            Projeto projeto = new Projeto(nomeProjeto, descricaoProjeto, responsavelProjeto);
-
-            cadastrarTarefasAcoes(input, projeto);
-
-            kanbanBoard.adicionarProjeto(projeto);
-            kanbanBoard.mostrarProjetos();
-        } catch (IllegalArgumentException e) {
-            System.out.println("Erro ao cadastrar projeto: " + e.getMessage());
+        } else {
+            System.out.println("Você não tem permissão para criar uma nova empresa.");
         }
     }
 
-    private static void adicionarTarefasAcoesProjetoExistente(Scanner input, KanbanBoard kanbanBoard) {
-        System.out.println("Projetos disponíveis para adicionar tarefas e ações:");
-        kanbanBoard.mostrarProjetos();
+    private static void novoDepartamento(Scanner input) {
+        if (usuarioLogado != null && usuarioLogado.podeCriarDepartamento()) {
+            System.out.println("Digite o nome do novo departamento:");
+            String nomeDepartamento = input.nextLine();
 
-        System.out.println("Digite o nome do projeto ao qual deseja adicionar tarefas e ações:");
-        String nomeProjeto = input.nextLine();
-
-        Projeto projetoExistente = kanbanBoard.encontrarProjeto(nomeProjeto);
-
-        if (projetoExistente != null && projetoExistente.podeSerEditadoPorUsuario(usuarioLogado)) {
-            cadastrarTarefasAcoes(input, projetoExistente);
+            // Outros dados do departamento podem ser solicitados aqui, dependendo do seu sistema
+            Departamento novoDepartamento = new Departamento(nomeDepartamento);
+            departamentos.add(novoDepartamento); // Adiciona o novo departamento à lista
+            System.out.println("Departamento cadastrado com sucesso: " + novoDepartamento.getNomeDepartamento());
         } else {
-            System.out.println("Projeto não encontrado ou você não tem permissão para editá-lo.");
+            System.out.println("Você não tem permissão para criar um novo departamento.");
         }
+    }
+
+    private static void listarDepartamentos(List<Departamento> departamentos) {
+        System.out.println("Departamentos disponíveis:");
+        for (int i = 0; i < departamentos.size(); i++) {
+            System.out.println("[" + (i + 1) + "] - " + departamentos.get(i).getNomeDepartamento());
+        }
+    }
+
+    private static void cadastrarNovoProjeto(Scanner input, List<Empresa> empresas, KanbanBoard kanbanBoard) {
+    try {
+        if (empresas.isEmpty()) {
+            System.out.println("Nenhuma empresa cadastrada. Crie uma empresa antes de adicionar projetos.");
+            return;
+        }
+
+        System.out.println("Escolha a empresa para a qual deseja adicionar um novo projeto:");
+        listarEmpresas(empresas);
+
+        int opcaoEmpresa = input.nextInt();
+        input.nextLine(); // Consumir a quebra de linha
+
+        if (opcaoEmpresa < 1 || opcaoEmpresa > empresas.size()) {
+            System.out.println("Opção inválida. Tente novamente.");
+            return;
+        }
+
+        Empresa minhaEmpresa = empresas.get(opcaoEmpresa - 1);
+
+        System.out.println("Digite o ID (senha) da empresa:");
+        int senhaEmpresa = input.nextInt();
+        input.nextLine(); // Consumir a quebra de linha
+
+        if (!minhaEmpresa.verificarSenha(senhaEmpresa)) {
+            System.out.println("Senha da empresa incorreta. Operação cancelada.");
+            return;
+        }
+
+        boolean projetoNomeValido = false;
+        Projeto projeto = null;
+
+        while (!projetoNomeValido) {
+            System.out.println("Digite o nome do projeto:");
+            String nomeProjeto = input.nextLine().trim();
+
+            if (nomeProjeto.isEmpty()) {
+                System.out.println("Nome do projeto não pode ser vazio. Tente novamente.");
+            } else if (existeProjeto(nomeProjeto, minhaEmpresa.getProjetos())) {
+                System.out.println("Já existe um projeto com esse nome na empresa. Escolha um nome único.");
+            } else {
+                projetoNomeValido = true;
+                System.out.println("Digite uma pequena descrição do projeto:");
+                String descricaoProjeto = input.nextLine().trim();
+                if (descricaoProjeto.isEmpty()) {
+                    throw new IllegalArgumentException("Descrição do projeto não pode ser vazia");
+                }
+
+                Usuario responsavelProjeto = usuarioLogado;
+
+                projeto = new Projeto(nomeProjeto, descricaoProjeto, responsavelProjeto, minhaEmpresa);
+
+                cadastrarTarefasAcoes(input, projeto);
+
+                // Adicionando o projeto à empresa
+                minhaEmpresa.adicionarProjeto(projeto);
+
+                // Adicionando o projeto ao kanbanBoard
+                kanbanBoard.adicionarProjeto(projeto);
+
+                kanbanBoard.mostrarProjetos();
+            }
+        }
+    } catch (IllegalArgumentException e) {
+        System.out.println("Erro ao cadastrar projeto: " + e.getMessage());
+    }
+}
+    
+    private static boolean existeProjeto(String nomeProjeto, List<Projeto> projetos) {
+        for (Projeto projeto : projetos) {
+            if (projeto.getNome().equalsIgnoreCase(nomeProjeto)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void listarEmpresas(List<Empresa> empresas) {
+        System.out.println("Empresas disponíveis:");
+        for (int i = 0; i < empresas.size(); i++) {
+            System.out.println("[" + (i + 1) + "] - " + empresas.get(i).getNomeEmpresa());
+        }
+        System.out.print("Escolha: ");
     }
 
     private static void visualizarDetalhesProjeto(Scanner input, KanbanBoard kanbanBoard) {
@@ -374,31 +655,68 @@ public class ProjetoIntegrador {
     }
 
     private static void cadastrarTarefasAcoes(Scanner input, Projeto projeto) {
-        try {
-            System.out.println("Quantas tarefas deseja cadastrar para o projeto?");
-            int numTarefas = input.nextInt();
-            input.nextLine(); // Limpar o buffer
+    try {
+        String adicionarTarefa;
+        do {
+            System.out.println("Deseja adicionar uma nova tarefa ao projeto? (Digite 'Sim' ou 'Não' e pressione Enter)");
+            adicionarTarefa = input.nextLine().trim();
 
-            for (int i = 0; i < numTarefas; i++) {
-                System.out.println("Digite o nome da tarefa " + (i + 1) + ":");
-                String nomeTarefa = input.nextLine();
-
-                // Alteração aqui: fornecer o Usuario ao criar a Tarefa
-                Tarefa tarefa = new Tarefa(nomeTarefa, usuarioLogado);
-
-                System.out.println("Quantas ações deseja cadastrar para a tarefa?");
-                int numAcoes = input.nextInt();
-                input.nextLine(); // Limpar o buffer
-
-                for (int j = 0; j < numAcoes; j++) {
-                    cadastrarAcao(input, tarefa);
-                }
-
-                projeto.adicionarTarefa(tarefa);
+            if (!adicionarTarefa.equalsIgnoreCase("Sim") && !adicionarTarefa.equalsIgnoreCase("Não")) {
+                System.out.println("Opção inválida. Por favor, responda com 'Sim' ou 'Não'.");
             }
+        } while (!adicionarTarefa.equalsIgnoreCase("Sim") && !adicionarTarefa.equalsIgnoreCase("Não"));
 
+        if (adicionarTarefa.equalsIgnoreCase("Sim")) {
+            boolean tarefaExistente;
+            do {
+                System.out.println("Digite o nome da nova tarefa:");
+                String nomeTarefa = input.nextLine().trim();
+
+                if (projeto.existeTarefa(nomeTarefa)) {
+                    System.out.println("Já existe uma tarefa com esse nome. Escolha um nome único.");
+                    tarefaExistente = true;
+                } else {
+                    Tarefa tarefa = new Tarefa(nomeTarefa, usuarioLogado);
+                    projeto.adicionarTarefa(tarefa);
+
+                    // Agora, permita adicionar ações à nova tarefa
+                    System.out.println("Quantas ações deseja cadastrar para a tarefa?");
+                    int numAcoes = input.nextInt();
+                    input.nextLine(); // Limpar o buffer
+
+                    for (int j = 0; j < numAcoes; j++) {
+                        cadastrarAcao(input, tarefa);
+                    }
+
+                    tarefaExistente = false;
+                }
+            } while (tarefaExistente);
+        } else if (adicionarTarefa.equalsIgnoreCase("Não")) {
+            System.out.println("Projeto criado sem tarefas e ações.");
+        }
+    } catch (InputMismatchException e) {
+        System.out.println("Por favor, insira apenas uma das opções válidas.");
+        input.nextLine(); // Limpar o buffer
+    }
+}
+
+    private static void adicionarTarefasAcoesProjetoExistente(Scanner input, KanbanBoard kanbanBoard) {
+        try {
+            System.out.println("Projetos disponíveis para adicionar tarefas e ações:");
+            kanbanBoard.mostrarProjetos();
+
+            System.out.println("Digite o nome do projeto ao qual deseja adicionar tarefas e ações:");
+            String nomeProjeto = input.nextLine();
+
+            Projeto projetoExistente = kanbanBoard.encontrarProjeto(nomeProjeto);
+
+            if (projetoExistente != null && projetoExistente.podeSerEditadoPorUsuario(usuarioLogado)) {
+                cadastrarTarefasAcoes(input, projetoExistente);
+            } else {
+                System.out.println("Projeto não encontrado ou você não tem permissão para editá-lo.");
+            }
         } catch (InputMismatchException e) {
-            System.out.println("Por favor, insira um número válido.");
+            System.out.println("Por favor, insira apenas uma das opções válidas.");
             input.nextLine(); // Limpar o buffer
         }
     }
@@ -420,10 +738,6 @@ public class ProjetoIntegrador {
         }
     }
 
-    private static Date obterDataAtual() {
-        return new Date();
-    }
-
     private static boolean validarDataTermino(String dataInicio, String dataTermino) {
         try {
             java.util.Date dataInicioDate = FORMATO_DATA.parse(dataInicio);
@@ -435,6 +749,7 @@ public class ProjetoIntegrador {
     }
 
     private static void cadastrarAcao(Scanner input, Tarefa tarefa) {
+        input.nextLine();  // Consumir a nova linha pendente
         System.out.println("Digite o nome da ação:");
         String nomeAcao = input.nextLine();
 
@@ -449,38 +764,80 @@ public class ProjetoIntegrador {
                 dataInicioAcao = input.nextLine();
             }
 
-            System.out.println("Digite a data de término da ação (formato dd/MM/yyyy):");
-            String dataTerminoAcao = input.nextLine();
-            while (!validarFormatoData(dataTerminoAcao) || !validarDataTermino(dataInicioAcao, dataTerminoAcao)) {
-                System.out.println("Data de término inválida ou anterior à data de início. Digite novamente (formato dd/MM/yyyy):");
-                dataTerminoAcao = input.nextLine();
+            // Utilizando o método listarDepartamentos para permitir que o usuário escolha um departamento
+            listarDepartamentos(departamentos);
+
+            int escolhaDepartamento = 0;
+            boolean escolhaValida = false;
+
+            while (!escolhaValida) {
+                try {
+                    System.out.print("Escolha o número do departamento responsável pela ação: ");
+                    escolhaDepartamento = input.nextInt();
+                    input.nextLine(); // Limpar o buffer do scanner
+
+                    if (escolhaDepartamento > 0 && escolhaDepartamento <= departamentos.size()) {
+                        escolhaValida = true;
+                    } else {
+                        System.out.println("Escolha inválida. Por favor, selecione um número válido.");
+                    }
+                } catch (InputMismatchException e) {
+                    System.out.println("Por favor, digite um número válido.");
+                    input.nextLine(); // Limpar o buffer do scanner
+                }
             }
 
-            System.out.println("Digite a área responsável pela ação:");
-            String areaResponsavelAcao = input.nextLine();
+            String areaResponsavelAcao = departamentos.get(escolhaDepartamento - 1).getNomeDepartamento();
 
-            System.out.println("Digite o usuário responsável pela ação:");
-            String usuarioResponsavelAcao = input.nextLine();
+            System.out.println(" ");
+            listarUsuarios(usuarios);
 
-            
-            
-            System.out.println("Digite o percentual inicial da(s) ação/ações: ");
-            int percentConclusaoAcao = 0;
+            int escolhaUsuario = 0;
+            boolean escolhaUsuarioValida = false;
+
+            while (!escolhaUsuarioValida) {
+                try {
+                    System.out.print("Escolha o número do usuário responsável pela ação: ");
+                    escolhaUsuario = input.nextInt();
+                    input.nextLine(); // Limpar o buffer do scanner
+
+                    if (escolhaUsuario > 1 && escolhaUsuario <= usuarios.size()) {
+                        escolhaUsuarioValida = true;
+                    } else {
+                        System.out.println("Escolha inválida. Por favor, selecione um número válido (exceto 1, que é o Administrador).");
+                    }
+                } catch (InputMismatchException e) {
+                    System.out.println("Por favor, digite um número válido.");
+                    input.nextLine(); // Limpar o buffer do scanner
+                }
+            }
+
+            String usuarioResponsavelAcao = null;
+            String loginResponsavelAcao = null;
+
+            if (escolhaUsuario > 0 && escolhaUsuario <= usuarios.size()) {
+                Usuario usuarioEscolhido = usuarios.get(escolhaUsuario - 1);
+                usuarioResponsavelAcao = usuarioEscolhido.getNome();
+                loginResponsavelAcao = usuarioEscolhido.getLogin(); // Obtenha o login do usuário escolhido
+            } else {
+                System.out.println("Escolha inválida. Por favor, selecione um número válido.");
+            }
+
+            double percentConclusaoAcao = 0;
             boolean inputValido = false;
-
             while (!inputValido) {
                 try {
-                    percentConclusaoAcao = Integer.parseInt(input.nextLine());
+                    System.out.println("Digite o percentual inicial da(s) ação/ações: ");
+                    percentConclusaoAcao = input.nextDouble();
 
-                    if (percentConclusaoAcao < 0 || percentConclusaoAcao > 100) {
-                        throw new IllegalArgumentException("O percentual deve estar entre 0 e 100.");
+                    if (percentConclusaoAcao != 0) {
+                        System.out.println("O percentual inicial deve ser 0.");
+                    } else {
+                        inputValido = true;
                     }
-
-                    inputValido = true;
-                } catch (NumberFormatException e) {
+                } catch (InputMismatchException e) {
                     System.out.println("Por favor, digite um número válido.");
-                } catch (IllegalArgumentException e) {
-                    System.out.println(e.getMessage());
+                    input.nextLine(); // Limpa o buffer do scanner
                 }
             }
 
@@ -496,7 +853,7 @@ public class ProjetoIntegrador {
             }
 
             // Criar uma nova Acao com o construtor adequado
-            Acao acao = new Acao(nomeAcao, descricaoAcao, dataInicioAcao, dataTerminoAcao, areaResponsavelAcao, usuarioResponsavelAcao, percentConclusaoAcao, statusEnum, null, null);
+            Acao acao = new Acao(nomeAcao, descricaoAcao, areaResponsavelAcao, usuarioResponsavelAcao, loginResponsavelAcao, null, percentConclusaoAcao, statusEnum);
 
             // Adicionar a nova Acao à Tarefa
             tarefa.adicionarAcao(acao);
@@ -514,98 +871,89 @@ public class ProjetoIntegrador {
             return false;
         }
     }
+    
+    private static boolean existeLogin(String login, List<Usuario> usuarios) {
+        for (Usuario usuario : usuarios) {
+            if (usuario.getLogin().equalsIgnoreCase(login)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     private static void cadastrarNovoUsuario(Scanner input) {
-    boolean cadastroValido = false;
-
-    while (!cadastroValido) {
-        String nome = null;
-        try {
-            nome = lerNome(input);
-        } catch (IllegalArgumentException e) {
-            System.out.println("Erro: " + e.getMessage());
-            continue; // Continua na validação do nome
+        // Verifica se o usuário logado é um administrador
+        if (usuarioLogado == null || usuarioLogado.getTipoUsuario() != TipoUsuario.ADMINISTRADOR) {
+            System.out.println("Apenas administradores podem cadastrar novos usuários.");
+            return;
         }
 
+        String nome = lerNome(input);
+
+        // Tratamento para o login
         String login = null;
-        boolean loginValido = false;
-        while (!loginValido) {
+        boolean loginExistente = false;
+
+        do {
             try {
                 System.out.println("Digite o login do usuário:");
-                login = input.nextLine();
-                if (login.trim().isEmpty()) {
+                login = input.nextLine().trim();
+
+                if (login.isEmpty()) {
                     throw new IllegalArgumentException("Login não pode ser um espaço em branco");
                 }
-                loginValido = true; // Se chegou aqui, o login é válido
-            } catch (Exception e) {
-                System.out.println("Erro: " + e.getMessage());
-            }
-        }
 
-        String senha = null;
-        boolean senhaValida = false;
-        while (!senhaValida) {
-            try {
-                System.out.println("Digite a senha do usuário:");
-                senha = input.nextLine();
-                if (senha.trim().isEmpty()) {
-                    throw new IllegalArgumentException("Senha não pode ser um espaço em branco");
-                }
-                senhaValida = true; // Se chegou aqui, a senha é válida
-            } catch (Exception e) {
-                System.out.println("Erro: " + e.getMessage());
-            }
-        }
-
-        // Tratamento para o CPF
-        String cpf = null;
-        boolean formatoInvalido = true;
-        while (formatoInvalido) {
-            try {
-                System.out.println("Digite o CPF (apenas números, 11 dígitos):");
-                cpf = input.nextLine().trim();
-
-                // Verifica se o CPF tem exatamente 11 dígitos
-                if (cpf.length() == 11 && cpf.matches("\\d+")) {
-                    formatoInvalido = false;
+                // Verifica se o login já existe
+                if (existeLogin(login, usuarios)) {
+                    System.out.println("Já existe um usuário com esse login. Escolha um login único.");
+                    loginExistente = true;
                 } else {
-                    throw new IllegalArgumentException("O CPF deve conter exatamente 11 números.");
+                    loginExistente = false;
                 }
+
             } catch (Exception e) {
                 System.out.println("Erro: " + e.getMessage());
+                return; // Retorna para evitar o cadastro com valores inválidos
             }
+        } while (loginExistente);
+
+        // Tratamento para a senha
+        String senha = null;
+        try {
+            System.out.println("Digite a senha do usuário:");
+            senha = input.nextLine().trim();
+            if (senha.isEmpty()) {
+                throw new IllegalArgumentException("Senha não pode ser um espaço em branco");
+            }
+        } catch (Exception e) {
+            System.out.println("Erro: " + e.getMessage());
+            return; // Retorna para evitar o cadastro com valores inválidos
         }
 
+        // Tratamento para o tipo de usuário
         int tipoUsuario = 0;
-        boolean tipoUsuarioValido = false;
-        while (!tipoUsuarioValido) {
-            try {
-                System.out.println("Digite o tipo de usuário (1 para Administrador, 2 para Líder, 3 para Colaborador):");
-                String tipoUsuarioStr = input.nextLine().trim();
-                if (tipoUsuarioStr.isEmpty()) {
-                    throw new IllegalArgumentException("Tipo de usuário não pode ser um espaço em branco");
-                }
-                tipoUsuario = Integer.parseInt(tipoUsuarioStr);
-
-                if (tipoUsuario < 1 || tipoUsuario > 3) {
-                    throw new IllegalArgumentException("Tipo de usuário inválido. Será cadastrado como Colaborador.");
-                }
-
-                tipoUsuarioValido = true; // Se chegou aqui, o tipo de usuário é válido
-            } catch (Exception e) {
-                System.out.println("Erro: " + e.getMessage());
+        try {
+            System.out.println("Digite o tipo de usuário ([1] Líder | [2] Colaborador):");
+            String tipoUsuarioStr = input.nextLine().trim();
+            if (tipoUsuarioStr.isEmpty()) {
+                throw new IllegalArgumentException("Tipo de usuário não pode ser um espaço em branco");
             }
+            tipoUsuario = Integer.parseInt(tipoUsuarioStr);
+
+            if (tipoUsuario < 1 || tipoUsuario > 2) {
+                throw new IllegalArgumentException("Tipo de usuário inválido. Será cadastrado como Colaborador.");
+            }
+        } catch (Exception e) {
+            System.out.println("Erro: " + e.getMessage());
+            return; // Retorna para evitar o cadastro com valores inválidos
         }
 
         TipoUsuario tipoUsuarioEnum;
         switch (tipoUsuario) {
             case 1:
-                tipoUsuarioEnum = TipoUsuario.ADMINISTRADOR;
-                break;
-            case 2:
                 tipoUsuarioEnum = TipoUsuario.LIDER;
                 break;
-            case 3:
+            case 2:
                 tipoUsuarioEnum = TipoUsuario.COLABORADOR;
                 break;
             default:
@@ -613,23 +961,51 @@ public class ProjetoIntegrador {
                 tipoUsuarioEnum = TipoUsuario.COLABORADOR;
         }
 
-        Usuario novoUsuario = new Usuario(nome, login, senha, cpf, tipoUsuarioEnum);
-        // Adicione a lógica para armazenar o novo usuário (se necessário).
-
+        Usuario novoUsuario = new Usuario(nome, login, senha, tipoUsuarioEnum);
         System.out.println("Usuário cadastrado com sucesso!");
         usuarios.add(novoUsuario);
-        cadastroValido = true;
     }
-}
 
-    private static Empresa criarEmpresa() {
-        Scanner scanner = new Scanner(System.in);
+    private static void listarUsuarios(List<Usuario> usuarios) {
+        System.out.println("Lista de Usuários:");
 
-        System.out.println("Digite o nome da empresa:");
-        String nomeEmpresa = scanner.nextLine();
+        for (int i = 0; i < usuarios.size(); i++) {
+            Usuario usuario = usuarios.get(i);
 
-        // Criando e retornando a instância da classe Empresa
-        return new Empresa(nomeEmpresa);
+            // Adiciona uma condição para não listar o Administrador
+            if (usuario.getTipoUsuario() != TipoUsuario.ADMINISTRADOR) {
+                System.out.println("[" + (i + 1) + "] - Nome: " + usuario.getNome()
+                        + "\nLogin: " + usuario.getLogin()
+                        + "\nTipo de Usuário: " + usuario.getTipoUsuario()
+                        + "\n");
+            }
+        }
+    }
+
+    private static Empresa criarEmpresa(Scanner input) {
+        try {
+            System.out.println("Digite o ID da empresa:");
+            int idEmpresa = input.nextInt();
+            input.nextLine(); // Consumir a quebra de linha
+
+            String nomeEmpresa;
+            while (true) {
+                System.out.println("Digite o nome da empresa:");
+                nomeEmpresa = input.nextLine();
+
+                if (nomeEmpresa != null && !nomeEmpresa.trim().isEmpty()) {
+                    break;  // Saia do loop se o nome não for vazio ou nulo
+                } else {
+                    System.out.println("Nome inválido. Por favor, forneça um nome válido.");
+                }
+            }
+
+            return new Empresa(idEmpresa, nomeEmpresa);
+        } catch (Exception e) {
+            System.out.println("Entrada inválida. Certifique-se de fornecer valores válidos.");
+            input.nextLine(); // Limpar o buffer do scanner
+            return null;
+        }
     }
 
     private static String lerNome(Scanner input) {
@@ -648,32 +1024,16 @@ public class ProjetoIntegrador {
         }
     }
 
-    private static String lerCPF(Scanner input) {
-        System.out.println("Digite o CPF do usuário:");
-        while (true) {
-            try {
-                String cpf = input.nextLine();
-                if (cpf.matches("\\d+")) {
-                    return cpf;
-                } else {
-                    throw new IllegalArgumentException("CPF inválido. Use apenas números.");
-                }
-            } catch (IllegalArgumentException e) {
-                System.out.println(e.getMessage());
-            }
-        }
-    }
-
     private static int lerTipoUsuario(Scanner input) {
-        System.out.println("Escolha o tipo de usuário (1 - Administrador, 2 - Líder, 3 - Colaborador):");
+        System.out.println("Escolha o tipo de usuário (1 - Líder, 2 - Colaborador):");
         while (true) {
             try {
                 int tipoUsuario = input.nextInt();
                 input.nextLine(); // Limpar o buffer
-                if (tipoUsuario >= 1 && tipoUsuario <= 3) {
+                if (tipoUsuario >= 1 && tipoUsuario <= 2) {
                     return tipoUsuario;
                 } else {
-                    throw new IllegalArgumentException("Tipo de usuário inválido. Escolha entre 1 e 3.");
+                    throw new IllegalArgumentException("Tipo de usuário inválido. Escolha entre 1 e 2.");
                 }
             } catch (IllegalArgumentException e) {
                 System.out.println(e.getMessage());
@@ -682,8 +1042,6 @@ public class ProjetoIntegrador {
     }
 
     private static Usuario fazerLogin(Scanner input) {
-    int tentativas = 3;
-    while (tentativas > 0) {
         System.out.println("Digite o login:");
         String login = input.nextLine();
 
@@ -697,11 +1055,7 @@ public class ProjetoIntegrador {
             }
         }
 
-        System.out.println("Login falhou. Verifique suas credenciais. Tentativas restantes: " + (--tentativas));
+        System.out.println("Login falhou. Verifique suas credenciais.");
+        return null;
     }
-
-    System.out.println("Número máximo de tentativas atingido. Saindo do programa.");
-    encerrarPrograma();
-    return null;
-}
 }
